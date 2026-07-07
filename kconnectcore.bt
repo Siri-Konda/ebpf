@@ -3,7 +3,6 @@
 
 BEGIN
 {
-    printf("# Hello world)
     printf("# PID|PROCESS|PROTO|DEST IP|DPORT|SPORT\n");
 }
 
@@ -30,7 +29,6 @@ kprobe:tcp_connect
 }
 
 // UDP
-
 kprobe:ip_make_skb
 {
     $sk = (struct sock *)arg0;
@@ -54,52 +52,3 @@ kprobe:ip_make_skb
         }
     }
 }
-
-/*
-//tcp
-tracepoint:syscalls:sys_enter_connect
-{
-        $AF_INET = 2;
-        $AF_INET6 = 10;
-        //$sockaddr = (struct sockaddr*) args-> uservaddr; //or args[1]
-        
-        //IPv4
-        if (args->uservaddr->sa_family == $AF_INET      )
-        {
-                $sin = (struct sockaddr_in *)args->uservaddr; //socker internet
-                printf("%d|%s|TCP|%s|%d|0\n", pid, comm, ntop($sin->sin_addr.s_addr), bswap($sin->sin_port));
-        }
-
-        //IPv6
-        if (args->uservaddr->sa_family == $AF_INET6){
-                $sin = (struct sockaddr_in6 *)args->uservaddr; //socker internet
-                printf("%d|%s|TCP|%s|%d|0\n", pid, comm, ntop($sin->sin6_addr.in6_u.u6_addr8), bswap($sin->sin6_port));
-        }
-}
-
-tracepoint:syscalls:sys_enter_sendto
-{
-    $sockaddr = (struct sockaddr *)args->addr;
-    $AF_INET = 2;
-    $AF_INET6 = 10;
-
-    if ($sockaddr != 0) {
-        // IPv4
-        if ($sockaddr->sa_family == $AF_INET) {
-            $sin = (struct sockaddr_in *)$sockaddr;
-            $dport = bswap($sin->sin_port);
-            if ($dport > 0) {
-                printf("%d|%s|UDP|%s|%d|0\n", pid, comm, ntop($sin->sin_addr.s_addr), $dport);
-            }
-        }
-        // IPv6
-        else if ($sockaddr->sa_family == $AF_INET6) {
-            $sin6 = (struct sockaddr_in6 *)$sockaddr;
-            $dport = bswap($sin6->sin6_port);
-            if ($dport > 0) {
-                printf("%d|%s|UDP|%s|%d|0\n", pid, comm, ntop($sin6->sin6_addr.in6_u.u6_addr8), $dport);
-            }
-        }
-    }
-}
-*/
