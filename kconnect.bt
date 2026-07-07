@@ -1,0 +1,105 @@
+#!/usr/bin/env bpftrace
+
+
+BEGIN
+{
+    printf("# Hello world)
+    printf("# PID|PROCESS|PROTO|DEST IP|DPORT|SPORT\n");
+}
+
+// TCP
+kprobe:tcp_connect
+{
+    $sk = (struct sock *)arg0;
+    $family = $sk->__sk_common.skc_family;
+
+    // IPv4
+    if ($family == 2) {
+        $daddr = ntop($sk->__sk_common.skc_daddr);
+        $dport = bswap($sk->__sk_common.skc_dport);
+        $sport = $sk->__sk_common.skc_num;
+        printf("%d|%s|TCP|%s|%d|%d\n", pid, comm, $daddr, $dport, $sport);
+    }
+    // IPv6
+    else if ($family == 10) {
+        $daddr6 = ntop($sk->__sk_common.skc_v6_daddr.in6_u.u6_addr8);
+        $dport = bswap($sk->__sk_common.skc_dport);
+        $sport = $sk->__sk_common.skc_num;
+        printf("%d|%s|TCP|%s|%d|%d\n", pid, comm, $daddr6, $dport, $sport);
+    }
+}
+
+// UDP
+
+kprobe:ip_make_skb
+{
+    $sk = (struct sock *)arg0;
+    $family = $sk->__sk_common.skc_family;
+    $dport = bswap($sk->__sk_common.skc_dport);
+
+    if ($dport > 0) {
+        if ($family == 2) {
+            // Read target IP from the dynamic IPv4 flow identifier (arg1)
+            $fl4 = (struct flowi4 *)arg1;
+            $daddr = ntop($fl4->daddr);
+            $sport = $sk->__sk_common.skc_num;
+            printf("%d|%s|UDP|%s|%d|%d\n", pid, comm, $daddr, $dport, $sport);
+        }
+        else if ($family == 10) {
+            // Read target IP from the dynamic IPv6 flow identifier (arg1)
+            $fl6 = (struct flowi6 *)arg1;
+            $daddr6 = ntop($fl6->daddr.in6_u.u6_addr8);
+            $sport = $sk->__sk_common.skc_num;
+            printf("%d|%s|UDP|%s|%d|%d\n", pid, comm, $daddr6, $dport, $sport);
+        }
+    }
+}
+
+/*
+//tcp
+tracepoint:syscalls:sys_enter_connect
+{
+        $AF_INET = 2;
+        $AF_INET6 = 10;
+        //$sockaddr = (struct sockaddr*) args-> uservaddr; //or args[1]
+        
+        //IPv4
+        if (args->uservaddr->sa_family == $AF_INET      )
+        {
+                $sin = (struct sockaddr_in *)args->uservaddr; //socker internet
+                printf("%d|%s|TCP|%s|%d|0\n", pid, comm, ntop($sin->sin_addr.s_addr), bswap($sin->sin_port));
+        }
+
+        //IPv6
+        if (args->uservaddr->sa_family == $AF_INET6){
+                $sin = (struct sockaddr_in6 *)args->uservaddr; //socker internet
+                printf("%d|%s|TCP|%s|%d|0\n", pid, comm, ntop($sin->sin6_addr.in6_u.u6_addr8), bswap($sin->sin6_port));
+        }
+}
+
+tracepoint:syscalls:sys_enter_sendto
+{
+    $sockaddr = (struct sockaddr *)args->addr;
+    $AF_INET = 2;
+    $AF_INET6 = 10;
+
+    if ($sockaddr != 0) {
+        // IPv4
+        if ($sockaddr->sa_family == $AF_INET) {
+            $sin = (struct sockaddr_in *)$sockaddr;
+            $dport = bswap($sin->sin_port);
+            if ($dport > 0) {
+                printf("%d|%s|UDP|%s|%d|0\n", pid, comm, ntop($sin->sin_addr.s_addr), $dport);
+            }
+        }
+        // IPv6
+        else if ($sockaddr->sa_family == $AF_INET6) {
+            $sin6 = (struct sockaddr_in6 *)$sockaddr;
+            $dport = bswap($sin6->sin6_port);
+            if ($dport > 0) {
+                printf("%d|%s|UDP|%s|%d|0\n", pid, comm, ntop($sin6->sin6_addr.in6_u.u6_addr8), $dport);
+            }
+        }
+    }
+}
+*/
